@@ -16,24 +16,24 @@
 # § 1  Configuration constants
 # ─────────────────────────────────────────
 
-const IMMIX_BLOCK_SIZE    : Int = 32768      # 32 KB per block
-const IMMIX_LINE_SIZE     : Int = 128        # bytes per line
-const IMMIX_LINES_PER_BLOCK: Int = 256       # 32768 / 128
-const IMMIX_MAX_BLOCKS    : Int = 16         # 512 KB total heap (RP2040 budget)
-const IMMIX_LARGE_THRESHOLD: Int = 112       # objects > 112B span multiple lines
+let IMMIX_BLOCK_SIZE    : Int = 32768      # 32 KB per block
+let IMMIX_LINE_SIZE     : Int = 128        # bytes per line
+let IMMIX_LINES_PER_BLOCK: Int = 256       # 32768 / 128
+let IMMIX_MAX_BLOCKS    : Int = 16         # 512 KB total heap (RP2040 budget)
+let IMMIX_LARGE_THRESHOLD: Int = 112       # objects > 112B span multiple lines
 
 # Object type tags (must match the C-side VAL_* enum)
-const VAL_NONE    : Int = 0
-const VAL_INT     : Int = 1
-const VAL_FLOAT   : Int = 2
-const VAL_BOOL    : Int = 3
-const VAL_STRING  : Int = 4
-const VAL_LIST    : Int = 5
-const VAL_DICT    : Int = 6
-const VAL_FUNC    : Int = 7
-const VAL_CLOSURE : Int = 8
-const VAL_POINTER : Int = 9    # raw C pointer — NEVER evacuate
-const VAL_CLIB    : Int = 10   # C library handle — NEVER evacuate
+let VAL_NONE    : Int = 0
+let VAL_INT     : Int = 1
+let VAL_FLOAT   : Int = 2
+let VAL_BOOL    : Int = 3
+let VAL_STRING  : Int = 4
+let VAL_LIST    : Int = 5
+let VAL_DICT    : Int = 6
+let VAL_FUNC    : Int = 7
+let VAL_CLOSURE : Int = 8
+let VAL_POINTER : Int = 9    # raw C pointer — NEVER evacuate
+let VAL_CLIB    : Int = 10   # C library handle — NEVER evacuate
 
 # ─────────────────────────────────────────
 # § 2  Data structures
@@ -319,7 +319,7 @@ func gc_root_snapshot(out_list: [Pointer], out_count: Pointer) -> Void:
 # Internal mark-stack (iterative DFS to avoid C stack overflow on deep graphs)
 var _mark_stack  : [Pointer]
 var _mark_stack_top: Int = 0
-const MARK_STACK_CAPACITY: Int = 4096
+let MARK_STACK_CAPACITY: Int = 4096
 
 func _mark_push(ptr: Pointer) -> Void:
     assert _mark_stack_top < MARK_STACK_CAPACITY,
