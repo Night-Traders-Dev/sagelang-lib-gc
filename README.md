@@ -1,29 +1,14 @@
 # gc
 
 ## Purpose
-[Describe the purpose of this SageLang library module.]
+Garbage Collection management and utilities for the SageLang runtime.
 
 ## Features
-- [Feature 1]
-- [Feature 2]
-
-## Installation
-Add as a submodule to your SageLang project:
-```bash
-git submodule add <repository-url> core/lib/gc
-```
-
-## API Documentation
-[Link to detailed API documentation]
+- **Immix**: Implementation of the Immix mark-region garbage collector.
+- **Management**: Fine-grained GC control for critical performance paths.
 
 ## Usage Example
 ```sage
-import gc
-# Example usage...
+import gc.immix
+gc.collect() # Trigger manual collection
 ```
-
-## Contributing
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
-
-## License
-MIT (or maintain main project license)
