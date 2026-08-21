@@ -92,13 +92,11 @@ var _enabled : Bool = true
 #
 # Usage (SageMetal boot.sage):
 #   gc_init_static(512 * 1024)   # 512 KB from the linker-defined .heap section
-func gc_init_static(pool_size: Int) -> Void:
-    assert pool_size % IMMIX_BLOCK_SIZE == 0,
-        "gc_init_static: pool_size must be a multiple of IMMIX_BLOCK_SIZE"
+proc gc_init_static(pool_size: Int) -> Void:
+    assert(pool_size % IMMIX_BLOCK_SIZE == 0, "gc_init_static: pool_size must be a multiple of IMMIX_BLOCK_SIZE")
 
     let n_blocks: Int = pool_size / IMMIX_BLOCK_SIZE
-    assert n_blocks <= IMMIX_MAX_BLOCKS,
-        "gc_init_static: requested blocks exceed IMMIX_MAX_BLOCKS"
+    assert(n_blocks <= IMMIX_MAX_BLOCKS, "gc_init_static: requested blocks exceed IMMIX_MAX_BLOCKS")
 
     _alloc.total_blocks  = n_blocks
     _alloc.current_block = -1
@@ -135,7 +133,7 @@ func gc_init_static(pool_size: Int) -> Void:
 
 # Pull the next free block from the free-block list.
 # Returns the block index, or -1 if the heap is exhausted.
-func _acquire_free_block() -> Int:
+proc _acquire_free_block() -> Int:
     if _alloc.free_block_head == -1:
         return -1   # heap exhausted
 
@@ -152,7 +150,7 @@ func _acquire_free_block() -> Int:
     return idx
 
 # Return a block to the free-block list (called by sweep when all lines are dead)
-func _release_block(block_idx: Int) -> Void:
+proc _release_block(block_idx: Int) -> Void:
     let blk: ImmixBlock = _alloc.block_pool[block_idx]
     blk.block_mark     = 0
     blk.free_lines     = IMMIX_LINES_PER_BLOCK
@@ -167,7 +165,7 @@ func _release_block(block_idx: Int) -> Void:
 
 # Find the next free (unmarked) line in a block starting from 'from_line'.
 # Returns the line index, or -1 if no free line exists.
-func _find_free_line(block_idx: Int, from_line: Int) -> Int:
+proc _find_free_line(block_idx: Int, from_line: Int) -> Int:
     for i in range(from_line, IMMIX_LINES_PER_BLOCK):
         if _alloc.block_pool[block_idx].line_marks[i] == 0:
             return i
@@ -182,8 +180,8 @@ func _find_free_line(block_idx: Int, from_line: Int) -> Int:
 #
 # Large objects (size > IMMIX_LARGE_THRESHOLD) are handled by
 # _alloc_large() which spans contiguous lines.
-func gc_alloc(size: Int) -> Pointer:
-    assert size > 0, "gc_alloc: size must be positive"
+proc gc_alloc(size: Int) -> Pointer:
+    assert(size > 0, "gc_alloc: size must be positive")
 
     _stats.alloc_calls = _stats.alloc_calls + 1
     _stats.alloc_bytes = _stats.alloc_bytes + size
@@ -194,7 +192,7 @@ func gc_alloc(size: Int) -> Pointer:
     return _alloc_small(size)
 
 # Small object fast path (the common case)
-func _alloc_small(size: Int) -> Pointer:
+proc _alloc_small(size: Int) -> Pointer:
     # Try current block and line first
     if _alloc.current_block != -1:
         let blk: ImmixBlock = _alloc.block_pool[_alloc.current_block]
@@ -211,7 +209,7 @@ func _alloc_small(size: Int) -> Pointer:
     return _alloc_new_block(size)
 
 # Slow path: scan the current block for the next free line
-func _alloc_slow(block_idx: Int, size: Int) -> Pointer:
+proc _alloc_slow(block_idx: Int, size: Int) -> Pointer:
     let blk: ImmixBlock = _alloc.block_pool[block_idx]
     let next_line: Int = _find_free_line(block_idx, blk.current_line + 1)
 
@@ -228,14 +226,14 @@ func _alloc_slow(block_idx: Int, size: Int) -> Pointer:
     return _alloc_new_block(size)
 
 # Acquire a new block and allocate from line 0
-func _alloc_new_block(size: Int) -> Pointer:
+proc _alloc_new_block(size: Int) -> Pointer:
     let idx: Int = _acquire_free_block()
 
     if idx == -1:
         # Last resort: trigger a GC cycle and retry once
         gc_collect()
         let idx2: Int = _acquire_free_block()
-        assert idx2 != -1, "gc_alloc: heap exhausted after emergency collection"
+        assert(idx2 != -1, "gc_alloc: heap exhausted after emergency collection")
         _alloc.current_block = idx2
     else:
         _alloc.current_block = idx
@@ -247,7 +245,7 @@ func _alloc_new_block(size: Int) -> Pointer:
 
 # Large object allocation — spans however many contiguous lines are needed.
 # The object header stores the line-span count so the marker can skip ahead.
-func _alloc_large(size: Int) -> Pointer:
+proc _alloc_large(size: Int) -> Pointer:
     let lines_needed: Int = (size + IMMIX_LINE_SIZE - 1) / IMMIX_LINE_SIZE
 
     # Find a block with 'lines_needed' consecutive free lines
@@ -267,10 +265,10 @@ func _alloc_large(size: Int) -> Pointer:
             write_span_count(ptr, lines_needed)
             return ptr
 
-    assert false, "_alloc_large: no contiguous span available — heap fragmented"
+    assert(false, "_alloc_large: no contiguous span available — heap fragmented")
     return null_ptr()
 
-func _find_contiguous_free_lines(block_idx: Int, n: Int) -> Int:
+proc _find_contiguous_free_lines(block_idx: Int, n: Int) -> Int:
     var run: Int = 0
     var run_start: Int = -1
     for i in range(IMMIX_LINES_PER_BLOCK):
@@ -292,22 +290,21 @@ func _find_contiguous_free_lines(block_idx: Int, n: Int) -> Int:
 # Register a pointer slot as a GC root.
 # 'slot' is a pointer TO a pointer (a **SageValue style reference).
 # Call on function entry for every local that holds a heap reference.
-func gc_root_push(slot: Pointer) -> Void:
-    assert _roots.count < _roots.capacity,
-        "gc_root_push: root set overflow — increase GCRootSet.capacity"
+proc gc_root_push(slot: Pointer) -> Void:
+    assert(_roots.count < _roots.capacity, "gc_root_push: root set overflow — increase GCRootSet.capacity")
     _roots.slots[_roots.count] = slot
     _roots.count = _roots.count + 1
 
 # Unregister the most recently pushed root slot (LIFO).
 # Called on function exit.
-func gc_root_pop() -> Void:
-    assert _roots.count > 0, "gc_root_pop: root set underflow"
+proc gc_root_pop() -> Void:
+    assert(_roots.count > 0, "gc_root_pop: root set underflow")
     _roots.count = _roots.count - 1
 
 # Snapshot the root set into a temporary work list.
 # Used by the STW marker so the root set can be pushed/popped
 # safely during traversal without re-entrancy issues.
-func gc_root_snapshot(out_list: [Pointer], out_count: Pointer) -> Void:
+proc gc_root_snapshot(out_list: [Pointer], out_count: Pointer) -> Void:
     for i in range(_roots.count):
         out_list[i] = _roots.slots[i]
     write_int(out_count, _roots.count)
@@ -321,20 +318,19 @@ var _mark_stack  : [Pointer]
 var _mark_stack_top: Int = 0
 let MARK_STACK_CAPACITY: Int = 4096
 
-func _mark_push(ptr: Pointer) -> Void:
-    assert _mark_stack_top < MARK_STACK_CAPACITY,
-        "_mark_push: mark stack overflow — increase MARK_STACK_CAPACITY"
+proc _mark_push(ptr: Pointer) -> Void:
+    assert(_mark_stack_top < MARK_STACK_CAPACITY, "_mark_push: mark stack overflow — increase MARK_STACK_CAPACITY")
     _mark_stack[_mark_stack_top] = ptr
     _mark_stack_top = _mark_stack_top + 1
 
-func _mark_pop() -> Pointer:
-    assert _mark_stack_top > 0, "_mark_pop: mark stack underflow"
+proc _mark_pop() -> Pointer:
+    assert(_mark_stack_top > 0, "_mark_pop: mark stack underflow")
     _mark_stack_top = _mark_stack_top - 1
     return _mark_stack[_mark_stack_top]
 
 # Mark the line(s) containing the object at 'ptr', then push children.
 # Returns without marking if ptr is null or already-marked.
-func _mark_object(ptr: Pointer) -> Void:
+proc _mark_object(ptr: Pointer) -> Void:
     if is_null(ptr):
         return
 
@@ -366,7 +362,7 @@ func _mark_object(ptr: Pointer) -> Void:
 #
 # VAL_POINTER and VAL_CLIB: mark the header but do NOT follow
 # the raw C pointer — it lives outside the managed heap.
-func _push_children(ptr: Pointer) -> Void:
+proc _push_children(ptr: Pointer) -> Void:
     let type_tag: Int = read_type_tag(ptr)
 
     if type_tag == VAL_LIST:
@@ -421,7 +417,7 @@ func _push_children(ptr: Pointer) -> Void:
 #
 # Note: This is the entire sweep. No per-object free-list insertion,
 # no header patching. Just bitmap counting and memset.
-func _sweep() -> Void:
+proc _sweep() -> Void:
     var total_live: Int  = 0
     var total_free: Int  = 0
 
@@ -464,7 +460,7 @@ func _sweep() -> Void:
 # This helper is called before zeroing — see note in _sweep().
 # (In the actual implementation, this would be called on the snapshot
 #  before the memset. Shown here logically separated for clarity.)
-func _find_free_line_after_sweep(blk: ImmixBlock) -> Int:
+proc _find_free_line_after_sweep(blk: ImmixBlock) -> Int:
     for i in range(IMMIX_LINES_PER_BLOCK):
         if blk.line_marks[i] == 0:
             return i
@@ -477,7 +473,7 @@ func _find_free_line_after_sweep(blk: ImmixBlock) -> Int:
 # Trigger a full stop-the-world collection.
 # Safe to call at any time from SageMetal code.
 # On RP2040: halts core0, runs mark+sweep, resumes.
-func gc_collect() -> Void:
+proc gc_collect() -> Void:
     if not _enabled:
         return
 
@@ -513,19 +509,19 @@ func gc_collect() -> Void:
     _stats.collections       = _stats.collections + 1
 
 # Disable collection — for critical sections or C FFI boundaries
-func gc_disable() -> Void:
+proc gc_disable() -> Void:
     _enabled = false
 
 # Re-enable collection
-func gc_enable() -> Void:
+proc gc_enable() -> Void:
     _enabled = true
 
 # Return current GC statistics
-func gc_stats() -> GCStats:
+proc gc_stats() -> GCStats:
     return _stats
 
 # Force-report stats to serial output (bare-metal debug utility)
-func gc_dump_stats() -> Void:
+proc gc_dump_stats() -> Void:
     let s: GCStats = _stats
     serial_print("=== ImmixGC Stats ===\n")
     serial_print("  Collections:    " + str(s.collections)       + "\n")
